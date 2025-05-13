@@ -10,7 +10,7 @@ import io
 import tensorflow as tf
 import os
 
-# === Focal Loss 定义 ===
+# === Define Focal Loss ===
 def focal_loss(gamma=2., alpha=0.25):
     def focal_loss_fixed(y_true, y_pred):
         epsilon = tf.keras.backend.epsilon()
@@ -22,40 +22,49 @@ def focal_loss(gamma=2., alpha=0.25):
         return tf.reduce_mean(loss)
     return focal_loss_fixed
 
-# === FastAPI 初始化 ===
+# === Initialize FastAPI ===
 app = FastAPI()
 
+# === Enable CORS (for frontend like GitHub Pages) ===
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Can restrict to specific domain if needed
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# === 加载模型 ===
+# === Load Model ===
 MODEL_NAME = "touch_grass_model_mobilenetv2_aug.h5"
 model_path = os.path.join(os.path.dirname(__file__), MODEL_NAME)
 model = load_model(model_path, custom_objects={'focal_loss_fixed': focal_loss()})
 IMG_SIZE = (224, 224)
 
-# === 预测路由 ===
+# === Prediction Route ===
 @app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
-    contents = await file.read()
-    img = Image.open(io.BytesIO(contents)).convert("RGB")
-    img = img.resize(IMG_SIZE)
+    try:
+        contents = await file.read()
+        img = Image.open(io.BytesIO(contents)).convert("RGB")
+        img = img.resize(IMG_SIZE)
 
-    img_array = img_to_array(img)
-    img_array = preprocess_input(img_array)
-    img_array = np.expand_dims(img_array, axis=0)
+        img_array = img_to_array(img)
+        img_array = preprocess_input(img_array)
+        img_array = np.expand_dims(img_array, axis=0)
 
-    pred = model.predict(img_array)[0]
-    label = "Touching Grass" if np.argmax(pred) == 1 else "Not Touching Grass"
-    confidence = float(pred[np.argmax(pred)])
+        pred = model.predict(img_array)[0]
+        label = "Touching Grass" if np.argmax(pred) == 1 else "Not Touching Grass"
+        confidence = float(pred[np.argmax(pred)])
 
-    return JSONResponse({
-        "label": label,
-        "confidence": round(confidence, 4),
-        "model": MODEL_NAME
-    })
+        return JSONResponse({
+            "label": label,
+            "confidence": round(confidence, 4),
+            "model": MODEL_NAME
+        })
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+# === Optional: Run locally for testing ===
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
