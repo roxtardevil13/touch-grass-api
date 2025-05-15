@@ -43,12 +43,14 @@ IMG_SIZE = (224, 224)
 _ = model.predict(np.zeros((1, 224, 224, 3)))
 
 # === Root Route ===
-@app.get("/")
-def root():
+@app.get("/status", include_in_schema=False)
+@app.head("/status", include_in_schema=False)
+def status():
     return {"message": "Touch Grass API is live. Use /predict to POST images."}
 
 # === Health Check Route ===
-@app.get("/ping")
+@app.get("/ping", include_in_schema=False)
+@app.head("/ping", include_in_schema=False)
 def ping():
     return {"status": "ok"}
 
