@@ -22,12 +22,12 @@ def focal_loss(gamma=2., alpha=0.25):
         return tf.reduce_mean(loss)
     return focal_loss_fixed
 
-# === Initialize FastAPI ===
+# === Initialize FastAPI App ===
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,7 +39,20 @@ model_path = os.path.join(os.path.dirname(__file__), MODEL_NAME)
 model = load_model(model_path, custom_objects={'focal_loss_fixed': focal_loss()})
 IMG_SIZE = (224, 224)
 
-# === Prediction Endpoint ===
+# Optional: Warm-up
+_ = model.predict(np.zeros((1, 224, 224, 3)))
+
+# === Root Route ===
+@app.get("/")
+def root():
+    return {"message": "Touch Grass API is live. Use /predict to POST images."}
+
+# === Health Check Route ===
+@app.get("/ping")
+def ping():
+    return {"status": "ok"}
+
+# === Prediction Route ===
 @app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
     contents = await file.read()
@@ -59,9 +72,3 @@ async def predict(file: UploadFile = File(...)):
         "confidence": round(confidence, 4),
         "model": MODEL_NAME
     })
-
-# === Health Check Endpoint ===
-@app.get("/ping", include_in_schema=False)
-@app.head("/ping", include_in_schema=False)
-def ping():
-    return {"status": "ok"}
